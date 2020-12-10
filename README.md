@@ -2,4 +2,4 @@
 
 ## Live Demo [Click Me !!](https://thenirmalkc.github.io/steering-on-a-path/)
 
-![Steering on a Path](screenshots/steering-on-path.png)
+![Steering on a Path](screenshots/steering-on-a-path.png)
