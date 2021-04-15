@@ -1,86 +1,66 @@
 class Vehicle {
 
-  constructor(x, y) {
-    this.mass = 1
-    this.max_speed = 4
-    this.max_force = 0.1
+    constructor(x, y) {
+        this.fov = 50 + Math.floor(Math.random() * 50) + 1;
+        this.pos = new Vec2(x, y); // Location
+        this.vel = new Vec2(Math.random() * 2 - 1, Math.random() * 2 - 1); // Velocity
+        this.acc = new Vec2(0, 0); // Acceleration
 
-    this.location = new Vector2D(x, y)
+        this.mass = 1;
+        this.maxSpeed = 2;
+        this.maxForce = 0.1;
 
-    this.velocity = Vector2D.random()
+        this.vel.setMag(this.maxSpeed);
+    }
 
-    // setting vehicle's velocity to positive value
-    this.velocity.set_x(Math.abs(this.velocity.x))
-    this.velocity.set_y(Math.abs(this.velocity.y))
+    calc_SteeringForce(target) {
+        let desV = Vec2.sub(target, this.pos); // Desired velocity
+        
+        if (desV.x == 0 && desV.y == 0)
+            return new Vec2(0, 0);
 
-    // setting vehicle's velocity to max speed
-    this.velocity.set_mag(this.max_speed)
+        desV.setMag(this.maxSpeed);
 
+        let sf = Vec2.sub(desV, this.vel); // Steering force
+        sf.limit(this.maxForce);
 
-    this.acceleration = new Vector2D(0, 0)
+        return sf;
+    }
 
+    applyForce(force) {
+        // Force = Mass * Acceleration
+        force = force.copy();
+        this.acc.add(force.div(this.mass));
+    }
 
-  }
+    update() {
+        this.vel.add(this.acc);
+        this.vel.setMag(this.maxSpeed);
+        this.pos.add(this.vel);
 
+        // Reset acceleration
+        this.acc.mult(0);
+    }
 
-  set_mass(mass) {
-    this.mass = mass
-  }
+    display() {
+        let dir = this.vel.copy();
+        
+        if (dir.x == 0 && dir.y == 0)
+            dir.set(0, -1);
 
+        dir.setMag(10);
 
-  // applies force
-  apply_force(force) {
-    force = force.copy()
+        let p2 = dir.copy().add(this.pos);
+        let p1 = dir.copy().mult(-1).rotate( 0.3).add(this.pos);
+        let p3 = dir.copy().mult(-1).rotate(-0.3).add(this.pos);
 
-    // applying force and changing acceleration
-    // acceleration = force / mass
-    this.acceleration.add(force.div(this.mass))
-
-  }
-
-
-  // updates vehicle's velocity and location
-  update() {
-
-    // updating velocity by acceleration
-    this.velocity.add(this.acceleration)
-
-    // updating location by velocity
-    this.location.add(this.velocity)
-
-    // resetting acceleration
-    this.acceleration.mult(0)
-
-  }
-
-
-  // displays vehicle
-  display() {
-
-    // calculating 3 points for triangle
-    const p2 = this.velocity
-      .copy()
-      .set_mag(10)
-      .add(this.location)
-
-    const p1 = this.velocity
-      .copy()
-      .set_mag(10)
-      .mult(-1)
-      .rotate_in_degree(20)
-      .add(this.location)
-
-    const p3 = this.velocity
-      .copy()
-      .set_mag(10)
-      .mult(-1)
-      .rotate_in_degree(-20)
-      .add(this.location)
-
-    noStroke()
-    fill(100)
-    triangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y)
-
-  }
-
+        noStroke();
+        fill(color(40));
+        triangle(
+            p1.x, p1.y,
+            p2.x, p2.y,
+            p3.x, p3.y
+        );
+    }
+    
 }

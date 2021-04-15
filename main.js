@@ -1,144 +1,112 @@
-const width = 800
-const height = 540
-let temps
+let DEBUG = false;
 
-let offset = new Vector2D(0, height / 2)
+const width = 640;
+const height = 480;
 
-
-// Algorithm
-
-// 1) Find the vehicle's future location
-// 2) If vehicle's future location is on the path ??
-// Yes -> Do nothing
-// No  ->
-// 3) Find the projection to the path
-// 4) And move a bit further from projection on the path
-
-
-// vehicle
-let vehicles = []
-
-
-// path
-let path_radius = 25
-let path = new Vector2D(1, 0)
-
-// pointing the path towards positive direction
-path.set_x(Math.abs(path.x))
-path.set_y(Math.abs(path.y))
-
-// setting the length of path
-path.set_mag(width)
-
+let vehicles = [];
+let path = new Path(25);
 
 
 function setup() {
-	const canvas = createCanvas(width, height)
-  canvas.position((windowWidth - width) / 2, (windowHeight - height) / 2)
-	background(240)
+    const canvas = createCanvas(width, height);
+    canvas.position((windowWidth - width) / 2, (windowHeight - height) / 2);
+
+    path.add(100,  75, 540,  75);
+    path.add(540,  75, 540, 405);
+    path.add(540, 405, 100, 405);
+    path.add(100, 405, 100,  75);
 }
 
 
 function draw() {
-  // frameRate(1)
-  background(240)
+    background(255);
 
-  // path
-  temp = Vector2D.add(offset, path)
-  stroke(0)
-  line(offset.x, offset.y, temp.x, temp.y)
+    strokeWeight(2);
+    stroke(color(200));
+    noFill();
+    rect(0, 0, width, height);
 
-  noStroke()
-  fill(0, 40)
-  rect(offset.x, offset.y - path_radius, width - 1, path_radius * 2)
+    path.display();
 
+    for (let i = 0; i < vehicles.length; i ++) {
+        let target = GetTarget(vehicles[i]);
+        
+        if (target) {
+            let sf = vehicles[i].calc_SteeringForce(target);
+            vehicles[i].applyForce(sf);
+        }
 
-  // vehicle
-  for(let i = 0; i < vehicles.length; i ++) {
-
-    vehicles[i].display()
-
-    const temp_velocity = vehicles[i].velocity.copy()
-      .set_mag(50)
-    const future_location = Vector2D.add(vehicles[i].location, temp_velocity)
-    const projection = Vector2D.projection(future_location, path)
-      .add(offset)
-    const target = path.copy()
-      .set_mag(50)
-      .add(projection)
+        vehicles[i].update();
+        vehicles[i].display();
+    }
+}
 
 
-    // displaying lines
-    stroke(100)
-    line(vehicles[i].location.x, vehicles[i].location.y, future_location.x, future_location.y)
-    line(future_location.x, future_location.y, projection.x, projection.y)
+function mousePressed() {
+    if (mouseX < 0 || mouseY < 0 || mouseX >= width || mouseY >= height)
+        return;
 
-    // displaying projection
-    noStroke()
-    fill(100)
-    circle(projection.x, projection.y, 4)
-
-    // displaying target
-    noStroke()
-    fill(255, 0, 0)
-    circle(target.x, target.y, 4)
+    if (vehicles.length < 20)
+        vehicles.push(new Vehicle(mouseX, mouseY));
+}
 
 
-    const distance = calc_distance(future_location, path)
-    if(distance > path_radius) {
-      vehicles[i].apply_force(calc_steering_force(target, vehicles[i]))
+function GetTarget(vehicle) {
+    let minDist = Infinity;
+    let vec1, vec2, vel, fPos, proj, dist;
+    let origin;
+    let FPos, Proj, dir;
+    let target;
+
+    for (let i = 0; i < path.points.length - 1; i ++) {
+        vec1 = Vec2.sub(vehicle.pos, path.points[i]); // Position vector
+        vec2 = Vec2.sub(path.points[i + 1], path.points[i]); // Path vector
+        vel = vehicle.vel.copy();
+        vel.setMag(vehicle.fov);
+
+        // Calculating future position
+        fPos = Vec2.add(vec1, vel);
+
+        // Calculating future position's projection on path
+        proj = fPos.proj(vec2);
+
+        if (proj.mag() > vec2.mag())
+            continue;
+
+        // Calculating perpendicular distance between future position and projection on path
+        dist = Vec2.dist(fPos, proj);
+
+        if (dist < minDist) {
+            origin = path.points[i];
+            FPos = fPos;
+            Proj = proj;
+
+            dir = vec2.copy();
+            dir.setMag(vehicle.fov);
+            target = Vec2.add(proj, dir);
+
+            minDist = dist;
+        }
     }
 
-    vehicles[i].update()
+    target.add(origin);
+    
+    if (DEBUG) {
+        FPos.add(origin);
+        Proj.add(origin);
 
-    // checking if vehicle is out of canvas or not
-    check_edges(vehicles[i])
-  }
-}
+        strokeWeight(1);
+        stroke(color(0, 0, 255));
+        line(vehicle.pos.x, vehicle.pos.y, FPos.x, FPos.y);
+        line(FPos.x, FPos.y, Proj.x, Proj.y);
 
+        noStroke();
+        fill(color(255, 0, 0));
+        circle(target.x, target.y, 6);
+    }
 
-// calculates steering force between vehicle and target on path
-function calc_steering_force(target, vehicle) {
-
-  const desired_vel = Vector2D.sub(target, vehicle.location)
-    .set_mag(vehicle.max_speed)
-
-  const steering_force = Vector2D.sub(desired_vel, vehicle.velocity)
-    .limit(vehicle.max_force)
-
-  return steering_force
-}
-
-// calculates distance between vehicle and path
-function calc_distance(future_location, path) {
-  const projection = Vector2D.projection(future_location, path)
-  const distance_vector = Vector2D.sub(projection, future_location)
-
-  return Vector2D.add(offset, distance_vector).mag()
-}
-
-
-// checks if vehicle is out of canvas
-function check_edges(vehicle) {
-  if(vehicle.location.x < 0) vehicle.location.x = width - 1
-  else if(vehicle.location.x > width - 1) vehicle.location.x = 0
-  else if(vehicle.location.y < 0) vehicle.location.y = height - 1
-  else if(vehicle.location.y > height - 1) vehicle.location.y = 0
-
-}
-
-
-// creates vehicle on mouse pressed
-function mousePressed() {
-  if(mouseX < 0 || mouseY < 0 || mouseX > width - 1 || mouseY > height - 1) return
-
-  vehicles.push(new Vehicle(mouseX, mouseY))
-}
-
-
-// creates vehicle on mouse dragged
-function mouseDragged() {
-  if(mouseX < 0 || mouseY < 0 || mouseX > width - 1 || mouseY > height - 1) return
-
-  vehicles.push(new Vehicle(mouseX, mouseY))
+    if (minDist > path.radius)
+        return target;
+    else
+        return null;
 }
